@@ -1,8 +1,8 @@
 package server
 
 import (
+	"fmt"
 	"log"
-    "fmt"
 	"net"
 	"time"
 )
@@ -36,9 +36,8 @@ HOW SERVER MAINTAINS THIS STATE
 type StatusHub struct {
 	clients     map[string]string
 	connections map[string]net.Conn
-    lastSeen map[string]string
+	lastSeen    map[string]string
 }
-
 
 func (st *StatusHub) checkPresence() {
 	now := time.Now()
@@ -58,7 +57,7 @@ func (st *StatusHub) handlePing(clientId string, pingTime string, conn *net.Conn
 		st.clients[clientId] = pingTime
 	} else {
 		st.clients[clientId] = pingTime
-        st.connections[clientId] = *conn
+		st.connections[clientId] = *conn
 		st.broadcastStatus(clientId, ONLINE)
 	}
 }
@@ -66,43 +65,43 @@ func (st *StatusHub) handlePing(clientId string, pingTime string, conn *net.Conn
 func (st *StatusHub) broadcastStatus(clientOfInterestId string, status Status) {
 	for clientId := range st.clients {
 		if clientId != clientOfInterestId {
-            statusUpdate := fmt.Sprintf("%s=%s", clientOfInterestId, string(status))
+			statusUpdate := fmt.Sprintf("%s=%s", clientOfInterestId, string(status))
 			st.connections[clientId].Write([]byte(statusUpdate))
 		}
 	}
 }
 
 func (st *StatusHub) Start() {
-    listener, err := net.Listen("tcp", "localhost:8080")
+	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		log.Println("Error creating listener:", err)
 		return
 	}
 	defer listener.Close()
 
-    go func() {
-        for {
-            st.checkPresence()
-            time.Sleep(CLIENT_TIMEOUT)
-        }
-    }()
+	go func() {
+		for {
+			st.checkPresence()
+			time.Sleep(CLIENT_TIMEOUT)
+		}
+	}()
 
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            log.Println("Error accepting connection: ", err)
-            continue
-        }
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Println("Error accepting connection: ", err)
+			continue
+		}
 
-        clientId, err := st.parseClient(&conn)
-        if err != nil {
-            log.Println(err)
-            conn.Close()
-            continue
-        }
+		clientId, err := st.parseClient(&conn)
+		if err != nil {
+			log.Println(err)
+			conn.Close()
+			continue
+		}
 
-        st.handlePing(clientId, time.Now().String(), &conn)
-    }
+		st.handlePing(clientId, time.Now().String(), &conn)
+	}
 }
 
 func (st *StatusHub) parseClient(conn *net.Conn) (string, error) {
