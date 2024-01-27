@@ -33,6 +33,13 @@ HOW SERVER MAINTAINS THIS STATE
 
 */
 
+type StatusHub struct {
+	clients     map[string]string
+	connections map[string]net.Conn
+    lastSeen map[string]string
+}
+
+
 func (st *StatusHub) checkPresence() {
 	now := time.Now()
 	for clientId, lastPing := range st.clients {
@@ -46,11 +53,12 @@ func (st *StatusHub) checkPresence() {
 	}
 }
 
-func (st *StatusHub) handlePing(clientId string, pingTime string) {
+func (st *StatusHub) handlePing(clientId string, pingTime string, conn *net.Conn) {
 	if _, ok := st.clients[clientId]; ok {
 		st.clients[clientId] = pingTime
 	} else {
 		st.clients[clientId] = pingTime
+        st.connections[clientId] = *conn
 		st.broadcastStatus(clientId, ONLINE)
 	}
 }
@@ -65,19 +73,19 @@ func (st *StatusHub) broadcastStatus(clientOfInterestId string, status Status) {
 }
 
 func (st *StatusHub) Start() {
-    go func() {
-        for {
-            st.checkPresence()
-            time.Sleep(CLIENT_TIMEOUT)
-        }
-    }()
-
     listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		log.Println("Error creating listener:", err)
 		return
 	}
 	defer listener.Close()
+
+    go func() {
+        for {
+            st.checkPresence()
+            time.Sleep(CLIENT_TIMEOUT)
+        }
+    }()
 
     for {
         conn, err := listener.Accept()
@@ -86,18 +94,18 @@ func (st *StatusHub) Start() {
             continue
         }
 
-        clientId, err := st.parseClientFromConnection(&conn)
+        clientId, err := st.parseClient(&conn)
         if err != nil {
             log.Println(err)
             conn.Close()
             continue
         }
 
-        st.handlePing(clientId, time.Now().String())
+        st.handlePing(clientId, time.Now().String(), &conn)
     }
 }
 
-func (st *StatusHub) parseClientFromConnection(conn *net.Conn) (string, error) {
+func (st *StatusHub) parseClient(conn *net.Conn) (string, error) {
 	buffer := make([]byte, 512)
 	n, err := (*conn).Read(buffer)
 	if err != nil {
