@@ -1,12 +1,5 @@
 package server
 
-import (
-	"fmt"
-	"log"
-	"net"
-	"time"
-)
-
 /* server actions
 -when to remove client from storage
 -who to send status updates to when a client goes [on/off]line
@@ -33,55 +26,88 @@ HOW SERVER MAINTAINS THIS STATE
 
 */
 
+import (
+	"fmt"
+	"log"
+	"net"
+	"time"
+)
+
 type StatusHub struct {
-	clients     map[string]string
+	clients     map[string]string //time stored in RFC3339 format
 	connections map[string]net.Conn
 	lastSeen    map[string]string
 }
 
-func (st *StatusHub) checkPresence() {
+func (sh *StatusHub) checkStatus() {
 	now := time.Now()
-	for clientId, lastPing := range st.clients {
+	for clientId, lastPing := range sh.clients {
 		lastPingTimestamp, _ := time.Parse(time.RFC3339, lastPing)
 		elapsedTimeSinceLastPing := now.Sub(lastPingTimestamp)
 		if elapsedTimeSinceLastPing > CLIENT_TIMEOUT {
-			delete(st.clients, clientId)
-			st.connections[clientId].Close()
-			st.broadcastStatus(clientId, OFFLINE)
+			delete(sh.clients, clientId)
+			sh.connections[clientId].Close()
+			sh.broadcastStatus(clientId, OFFLINE)
 		}
 	}
 }
 
-func (st *StatusHub) handlePing(clientId string, pingTime string, conn *net.Conn) {
-	if _, ok := st.clients[clientId]; ok {
-		st.clients[clientId] = pingTime
+func (sh *StatusHub) handlePing(conn *net.Conn) {
+    pingTime := time.Now().Format(time.RFC3339) // string in RFC3339 format
+
+    //get clientId from the connection
+    clientId, err := sh.getClient(conn)
+    if err != nil {
+        log.Println(err)
+        (*conn).Close()
+    }
+
+    //if client is already online, just update their ping timestamp 
+    //else broadcast to others
+	if _, ok := sh.clients[clientId]; ok {
+		sh.clients[clientId] = pingTime
 	} else {
-		st.clients[clientId] = pingTime
-		st.connections[clientId] = *conn
-		st.broadcastStatus(clientId, ONLINE)
+		sh.clients[clientId] = pingTime
+		sh.connections[clientId] = *conn
+		sh.broadcastStatus(clientId, ONLINE)
 	}
 }
 
-func (st *StatusHub) broadcastStatus(clientOfInterestId string, status Status) {
-	for clientId := range st.clients {
+func (sh *StatusHub) broadcastStatus(clientOfInterestId string, status Status) {
+	for clientId := range sh.clients {
 		if clientId != clientOfInterestId {
 			statusUpdate := fmt.Sprintf("%s=%s", clientOfInterestId, string(status))
-			st.connections[clientId].Write([]byte(statusUpdate))
+			sh.connections[clientId].Write([]byte(statusUpdate))
 		}
 	}
 }
 
-func (st *StatusHub) Start() {
-	listener, err := net.Listen("tcp", "localhost:8080")
+func (sh *StatusHub) getClient(conn *net.Conn) (string, error) {
+    //TODO: read in a while loop?
+	buffer := make([]byte, 512)
+	n, err := (*conn).Read(buffer)
+	if err != nil {
+		return "", fmt.Errorf("Error reading from connection: %v", err)
+	}
+	clientId := string(buffer[:n])
+	return clientId, nil
+}
+
+// Starts an existing StatusHub instance, listening for 
+// client pings and appropriately monitoring status. 
+func (sh *StatusHub) ListenAndMonitor() {
+	listener, err := net.Listen("tcp", "localhost:9000")
 	if err != nil {
 		log.Println("Error creating listener:", err)
 		return
 	}
 	defer listener.Close()
 
+    //periodically patrol for status
 	go func() {
 		for {
-			st.checkPresence()
+			sh.checkStatus()
+            log.Println("Checking status...")
 			time.Sleep(CLIENT_TIMEOUT)
 		}
 	}()
@@ -92,25 +118,11 @@ func (st *StatusHub) Start() {
 			log.Println("Error accepting connection: ", err)
 			continue
 		}
-
-		clientId, err := st.parseClient(&conn)
-		if err != nil {
-			log.Println(err)
-			conn.Close()
-			continue
-		}
-
-		st.handlePing(clientId, time.Now().String(), &conn)
+        
+        //TODO: make goroutine?
+		sh.handlePing(&conn)
 	}
 }
 
-func (st *StatusHub) parseClient(conn *net.Conn) (string, error) {
-	buffer := make([]byte, 512)
-	n, err := (*conn).Read(buffer)
-	if err != nil {
-		return "", fmt.Errorf("Error reading from connection: %v", err)
-	}
-
-	clientId := string(buffer[:n])
-	return clientId, nil
-}
+// Creates a new StatusHub instance
+func New() StatusHub { return StatusHub{} }
