@@ -10,9 +10,9 @@ const (
 
 /* STATE */
 
-type Status bool
+type Status string
 
 const (
-	ONLINE  Status = true
-	OFFLINE Status = false
+	ONLINE  Status = "ONLINE"
+	OFFLINE Status = "OFFLINE"
 )

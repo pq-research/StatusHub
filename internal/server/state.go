@@ -2,4 +2,9 @@ package server
 
 import "net"
 
-var client_ map[net.IPAddr]struct{}
+type StatusHub struct {
+	clients     map[string]string
+	connections map[string]net.Conn
+    lastSeen map[string]string
+}
+

@@ -1,7 +1,8 @@
 package server
 
 import (
-	"fmt"
+	"log"
+    "fmt"
 	"net"
 	"time"
 )
@@ -32,11 +33,6 @@ HOW SERVER MAINTAINS THIS STATE
 
 */
 
-type StatusHub struct {
-	clients     map[string]string
-	connections map[string]net.Conn
-}
-
 func (st *StatusHub) checkPresence() {
 	now := time.Now()
 	for clientId, lastPing := range st.clients {
@@ -60,10 +56,54 @@ func (st *StatusHub) handlePing(clientId string, pingTime string) {
 }
 
 func (st *StatusHub) broadcastStatus(clientOfInterestId string, status Status) {
-	for clientId, _ := range st.clients {
+	for clientId := range st.clients {
 		if clientId != clientOfInterestId {
-			statusUpdate := fmt.Sprintf("%s=%s", clientOfInterestId, status)
+            statusUpdate := fmt.Sprintf("%s=%s", clientOfInterestId, string(status))
 			st.connections[clientId].Write([]byte(statusUpdate))
 		}
 	}
+}
+
+func (st *StatusHub) Start() {
+    go func() {
+        for {
+            st.checkPresence()
+            time.Sleep(CLIENT_TIMEOUT)
+        }
+    }()
+
+    listener, err := net.Listen("tcp", "localhost:8080")
+	if err != nil {
+		log.Println("Error creating listener:", err)
+		return
+	}
+	defer listener.Close()
+
+    for {
+        conn, err := listener.Accept()
+        if err != nil {
+            log.Println("Error accepting connection: ", err)
+            continue
+        }
+
+        clientId, err := st.parseClientFromConnection(&conn)
+        if err != nil {
+            log.Println(err)
+            conn.Close()
+            continue
+        }
+
+        st.handlePing(clientId, time.Now().String())
+    }
+}
+
+func (st *StatusHub) parseClientFromConnection(conn *net.Conn) (string, error) {
+	buffer := make([]byte, 512)
+	n, err := (*conn).Read(buffer)
+	if err != nil {
+		return "", fmt.Errorf("Error reading from connection: %v", err)
+	}
+
+	clientId := string(buffer[:n])
+	return clientId, nil
 }
