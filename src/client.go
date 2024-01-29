@@ -18,7 +18,10 @@ type StatusHubClient struct {
 }
 
 func NewClient() StatusHubClient {
-	return StatusHubClient{id: ClientId(rand.Int63()), peers: make(map[ClientId]int64)}
+	return StatusHubClient{
+		id:    ClientId(rand.Int63()),
+		peers: make(map[ClientId]int64),
+    }
 }
 
 func (c *StatusHubClient) Start() {
@@ -33,7 +36,7 @@ func (c *StatusHubClient) pingStatusHub() {
 	conn, err := net.Dial("tcp", SERVER_ADDRESS)
 	if err != nil {
 		fmt.Printf("Failed to create connection with StatusHub at %s. Retrying...\n", SERVER_ADDRESS)
-        return
+		return
 	}
 	defer conn.Close()
 	err = binary.Write(conn, binary.LittleEndian, c.id)
