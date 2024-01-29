@@ -25,8 +25,8 @@ var usage string = `
 
 func main() {
 
-    logLevel := flag.String("loglevel", "none", "Set log level: debug, none")
-    switch *logLevel {
+	logLevel := flag.String("loglevel", "none", "Set log level: debug, none")
+	switch *logLevel {
 	case "debug":
 		log.SetOutput(os.Stderr)
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -38,10 +38,10 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 
-    if len(os.Args) < 2 {
-        fmt.Println(usage)
-        return
-    }
+	if len(os.Args) < 2 {
+		fmt.Println(usage)
+		return
+	}
 
 	role := os.Args[1]
 	switch role {
@@ -52,7 +52,7 @@ func main() {
 		c := statushub.NewClient()
 		c.Start()
 	default:
-        fmt.Println(usage)
+		fmt.Println(usage)
 	}
 
 }
