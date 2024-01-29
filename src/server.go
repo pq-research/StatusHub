@@ -17,6 +17,12 @@ type (
 	}
 )
 
+const (
+	SERVER_HOST    = "localhost"
+	SERVER_PORT    = "9000"
+	SERVER_ADDRESS = SERVER_HOST + ":" + SERVER_PORT
+)
+
 func New() StatusHub { return StatusHub{clients: make(map[ClientId]int64)} }
 
 func (sh *StatusHub) ListenForStatus() {
