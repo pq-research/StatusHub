@@ -31,10 +31,11 @@ func (c *StatusHubClient) Start() {
 
 func (c *StatusHubClient) pingStatusHub() {
 	conn, err := net.Dial("tcp", SERVER_ADDRESS)
-	defer conn.Close()
 	if err != nil {
-		log.Println("Failed to create connection with StatusHub at", SERVER_ADDRESS)
+		fmt.Printf("Failed to create connection with StatusHub at %s. Retrying...\n", SERVER_ADDRESS)
+        return
 	}
+	defer conn.Close()
 	err = binary.Write(conn, binary.LittleEndian, c.id)
 	if err != nil {
 		log.Println("err:", err)
