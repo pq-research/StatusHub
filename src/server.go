@@ -23,8 +23,12 @@ const (
 	SERVER_ADDRESS = SERVER_HOST + ":" + SERVER_PORT
 )
 
+// Creates a new StatusHub. The user should invoke 
+// `ListenForStatus()` after creating the StatusHub
 func New() StatusHub { return StatusHub{clients: make(map[ClientId]int64)} }
 
+// Listens for client pings and serves 
+// all ping timestamps to each client
 func (sh *StatusHub) ListenForStatus() {
 	listener, err := net.Listen("tcp", SERVER_ADDRESS)
 	if err != nil {

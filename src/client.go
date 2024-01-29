@@ -17,11 +17,19 @@ type StatusHubClient struct {
 	peers map[ClientId]int64
 }
 
+// Creates a new StatusHub client
 func NewClient() StatusHubClient {
 	return StatusHubClient{
-		id:    ClientId(rand.Int63()),
+		id:    getClientId(),
 		peers: make(map[ClientId]int64),
     }
+}
+
+func getClientId() ClientId {
+    // typically, talk to another service that
+    // stores a persistent, assigned ID for client
+    // or retrieve from locally cached file.
+    return ClientId(rand.Int63())
 }
 
 func (c *StatusHubClient) Start() {
